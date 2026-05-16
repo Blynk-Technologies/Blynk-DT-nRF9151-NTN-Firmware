@@ -1,6 +1,8 @@
 # Blynk DT NTN Blueprint
 
-This is a fork of the Nordic Asset Tracker Template repo, ntn_usecase branch, updated with specific code to work with the Blynk's DT NTN Blueprint 
+This is a fork of the Nordic Asset Tracker Template repo, ntn_usecase branch, updated with specific code to work with Blynk's DT NTN Blueprint.
+
+To skip having to set up a build environment find pre-built binaries for the nRF9151 SMA DK or the CircuitDojo nRF9151 Feather in the [Releases](../../releases).
 
 # Asset Tracker Template - NTN Use Case
 

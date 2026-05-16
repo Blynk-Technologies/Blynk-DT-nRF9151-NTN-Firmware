@@ -10,6 +10,7 @@
 #include <zephyr/smf.h>
 #include <modem/lte_lc.h>
 #include <date_time.h>
+#include <time.h>
 #include <modem/nrf_modem_lib.h>
 #include <modem/ntn.h>
 #include <nrf_modem_at.h>
@@ -61,6 +62,7 @@ struct ntn_state_object {
 	bool ntn_initialized;
 	bool gnss_initialized;
 	struct nrf_modem_gnss_pvt_data_frame last_pvt;
+	uint64_t last_pvt_uptime; /* Monotonic time when last PVT fix was saved */
 	int sock_fd;
 	uint64_t location_validity_end_time;
 };
@@ -528,16 +530,42 @@ static int sock_send_gnss_data(struct ntn_state_object *state)
 	}
 
 	temp[sizeof(temp) - 1] = '\0';
+	int64_t current_timestamp = 0;
+	struct tm send_tm = {0};
+	bool has_send_time = false;
 
 #if defined(CONFIG_APP_NTN_SEND_GNSS_DATA)
+	/* Use current system time (GNSS-synced by apply_gnss_time()) for send timestamp */
+	if (date_time_now(&current_timestamp) == 0) {
+		/* date_time_now returns ms since epoch in this project; convert to seconds */
+		current_timestamp /= 1000;
+		time_t current_time = (time_t)current_timestamp;
+		struct tm *tm_ptr = gmtime(&current_time);
+
+		if (tm_ptr != NULL) {
+			send_tm = *tm_ptr;
+			has_send_time = true;
+		}
+	}
+
+	if (!has_send_time) {
+		/* Fallback to PVT time if date_time() is not yet ready */
+		send_tm.tm_year = state->last_pvt.datetime.year - 1900;
+		send_tm.tm_mon = state->last_pvt.datetime.month - 1;
+		send_tm.tm_mday = state->last_pvt.datetime.day;
+		send_tm.tm_hour = state->last_pvt.datetime.hour;
+		send_tm.tm_min = state->last_pvt.datetime.minute;
+		send_tm.tm_sec = state->last_pvt.datetime.seconds;
+	}
+
 	/* Format GNSS data as string */
 	err = snprintk(message, sizeof(message),
 		"Device: *%s, temp: %s, lat=%.2f, lon=%.2f, alt=%.2f, "
 		"time=%04d-%02d-%02d %02d:%02d:%02d",
 		imei_suffix, temp,
 		(double)state->last_pvt.latitude, (double)state->last_pvt.longitude, (double)state->last_pvt.altitude,
-		state->last_pvt.datetime.year, state->last_pvt.datetime.month, state->last_pvt.datetime.day,
-		state->last_pvt.datetime.hour, state->last_pvt.datetime.minute, state->last_pvt.datetime.seconds);
+		send_tm.tm_year + 1900, send_tm.tm_mon + 1, send_tm.tm_mday,
+		send_tm.tm_hour, send_tm.tm_min, send_tm.tm_sec);
 	if (err < 0 || err >= sizeof(message)) {
 		LOG_ERR("Failed to format GNSS data, error: %d", err);
 
@@ -561,7 +589,7 @@ static int sock_send_gnss_data(struct ntn_state_object *state)
 		return -errno;
 	}
 
-	LOG_DBG("Sent GNSS data payload of %d bytes", strlen(message));
+	LOG_DBG("Sent GNSS data payload of %d bytes: %s", strlen(message), message);
 
 	return 0;
 }
@@ -699,6 +727,7 @@ static enum smf_state_result state_gnss_run(void *obj)
 		case NTN_LOCATION_SEARCH_DONE:
 			/* Location search completed, transition to NTN mode */
 			memcpy(&state->last_pvt, &msg->pvt, sizeof(state->last_pvt));
+			state->last_pvt_uptime = k_uptime_get();
 
 			state->location_validity_end_time =
 				k_uptime_get() +
@@ -947,6 +976,7 @@ static void ntn_module_thread(void)
 	const k_timeout_t zbus_wait_ms = K_MSEC(wdt_timeout_ms - execution_time_ms);
 	struct ntn_state_object ntn_state = {
 		.sock_fd = -1,
+		.last_pvt_uptime = 0,
 	 };
 
 	task_wdt_id = task_wdt_add(wdt_timeout_ms, ntn_wdt_callback, (void *)k_current_get());

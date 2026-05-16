@@ -1,3 +1,7 @@
+# Blynk DT NTN Blueprint
+
+This is a fork of the Nordic Asset Tracker Template repo, ntn_usecase branch, updated with specific code to work with the Blynk's DT NTN Blueprint 
+
 # Asset Tracker Template - NTN Use Case
 
 > **Note:** The NTN use case variant of the Asset Tracker Template is experimental and intended for development and testing purposes.

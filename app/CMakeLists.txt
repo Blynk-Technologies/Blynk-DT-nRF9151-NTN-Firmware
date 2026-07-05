@@ -6,6 +6,17 @@
 
 cmake_minimum_required(VERSION 3.20.0)
 
+# Local dev convenience: pick up a manually-cloned RedteaMobile nuSIM module
+# (https://github.com/redteamobile/ncs-nusim-app) if present at this path, so
+# nuSIM builds (overlay-nusim.conf) work without depending on the
+# -DZEPHYR_EXTRA_MODULES CMake argument, which did not reliably persist
+# through the nRF Connect for VS Code build-configuration UI. No-op on any
+# machine without this exact path (CI, other developers). Remove once
+# modules/lib/redteamobile-nusim is fetched via west instead (see west.yml).
+if(EXISTS "C:/Norodic/ncs-nusim-app")
+  list(APPEND ZEPHYR_EXTRA_MODULES "C:/Norodic/ncs-nusim-app")
+endif()
+
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
 project("Asset Tracker Template")
 

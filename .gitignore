@@ -9,6 +9,7 @@
 build
 build-*
 build_*
+nusim_build
 cscope.*
 .dir
 venv

@@ -9,6 +9,8 @@ manifest:
   remotes:
     - name: ncs
       url-base: https://github.com/nrfconnect
+    - name: redteamobile
+      url-base: https://github.com/redteamobile
 
   projects:
     - name: nrf
@@ -16,3 +18,11 @@ manifest:
       repo-path: sdk-nrf
       revision: 2d607e644189fd91b80ec5b976d4efc556695350
       import: true
+    # RedteaMobile nuSIM support (TF-M secure partition + AT command layer).
+    # Pinned to the commit tagged "release: update for NCS v3.2.2", matching
+    # the sdk-nrf revision above.
+    - name: redteamobile-nusim
+      remote: redteamobile
+      repo-path: ncs-nusim-app
+      path: modules/lib/redteamobile-nusim
+      revision: 8a5db8e9cb8907ebf42876b4f9934c462c9f674d

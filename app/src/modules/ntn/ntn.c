@@ -910,15 +910,6 @@ static void lte_lc_evt_handler(const struct lte_lc_evt *const evt)
 			ntn_msg_publish(NTN_NETWORK_DISCONNECTED);
 
 			break;
-		case LTE_LC_EVT_PDN_SUSPENDED:
-			LOG_DBG("PDN connection suspended");
-			ntn_msg_publish(NTN_NETWORK_DISCONNECTED);
-
-			break;
-		case LTE_LC_EVT_PDN_RESUMED:
-			LOG_DBG("PDN connection resumed");
-			ntn_msg_publish(NTN_NETWORK_CONNECTED);
-
 		default:
 			break;
 		}

@@ -4,13 +4,24 @@
 # (app/nusim_build/partitions.yml, built with
 # -DEXTRA_CONF_FILE="overlay-nusim.conf;overlay-ntn-skylo-dt.conf").
 #
+# This is the SECOND version of this file. The first (see
+# pm_static_nrf9151dk_nrf9151_ns.yml.stale-with-b0) locked a layout that
+# included Nordic's immutable first-stage bootloader (b0/NSIB). That was
+# removed (see Kconfig.sysbuild: SECURE_BOOT_APPCORE now defaults to n for
+# this board) because b0 writes its public-key-hash into UICR, which is
+# one-time-programmable -- confirmed on real hardware that every flash after
+# the first permanently demands ERASE_ALL, which would risk the
+# nuSIM-provisioned credentials living in an adjacent part of the same UICR
+# page. This build now makes ZERO writes to UICR (verified by parsing
+# merged.hex directly), so the safe erase mode
+# (chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE) should work indefinitely.
+#
 # This locks every partition boundary so nothing -- including future app
 # growth -- can silently encroach into tfm_storage/tfm_its (0xf8000-0xfe000),
 # which is where the nuSIM-provisioned SIM credentials live, via TF-M
 # Internal Trusted Storage. If the app image no longer fits in its fixed
 # partition, the build will fail loudly (partition overflow) instead of
-# shifting this boundary. See the firmware developer guide's "Safety and
-# Flashing Rules" section for why this matters.
+# shifting this boundary.
 #
 # Filename follows Zephyr's board-specific pm_static naming convention:
 # pm_static_<board>_<qualifiers, "/" replaced with "_">.yml, for board
@@ -19,104 +30,61 @@
 # IMPORTANT: before this is ever used to flash a real nuSIM-provisioned
 # device, rebuild with this file present (pristine) and confirm the
 # resulting app/nusim_build/partitions.yml reproduces this same layout
-# exactly -- address-for-address, size-for-size. Any diff means something
-# about the build config changed since this was captured and this file
-# needs to be regenerated, not patched by hand.
-
+# exactly. Any diff means something about the build config changed since
+# this was captured and this file needs to be regenerated, not patched by
+# hand.
+#
 # NOTE on gaps: the partition manager requires the static config to leave
-# EXACTLY ONE gap in each region -- that gap is where it dynamically places
+# EXACTLY ONE gap per region -- that gap is where it dynamically places
 # "app" (app is always dynamically placed/sized, even under a static config;
 # an explicit "app:" entry here is silently ignored). Every other
 # alignment-driven gap from the dynamic build has to be explicitly filled
 # with a placeholder partition below, or the build fails with "Incorrect
 # amount of gaps found in static configuration."
 
-# --- Immutable first-stage bootloader (b0) + its two updatable copies of
-# --- MCUboot (s0/s1).
-b0:
-  address: 0x0
-  size: 0x8000
-  region: flash_primary
-b0_container:
-  address: 0x0
-  size: 0x8000
-  region: flash_primary
-  span: [b0]
-s0:
-  address: 0x8000
-  size: 0x14000
-  region: flash_primary
-  span: [mcuboot, s0_pad]
-s0_pad:
-  address: 0x8000
-  size: 0x200
-  region: flash_primary
-s0_image:
-  address: 0x8200
-  size: 0x13e00
-  region: flash_primary
-  span: [mcuboot]
 mcuboot:
-  address: 0x8200
+  address: 0x0
   size: 0x13e00
   region: flash_primary
-s1:
-  address: 0x20000
-  size: 0x14000
-  region: flash_primary
-  span: [s1_pad, s1_image]
-s1_pad:
-  address: 0x20000
+pad_after_mcuboot:
+  address: 0x13e00
   size: 0x200
   region: flash_primary
-s1_image:
-  address: 0x20200
-  size: 0x13e00
-  region: flash_primary
-pad_after_s0:
-  address: 0x1c000
-  size: 0x4000
-  region: flash_primary
-pad_after_s1:
-  address: 0x34000
+pad_before_mcuboot_pad:
+  address: 0x14000
   size: 0x4000
   region: flash_primary
 
 # --- MCUboot primary (application) slot: TF-M secure image + app ---
 mcuboot_primary:
-  address: 0x38000
-  size: 0xb8000
+  address: 0x18000
+  size: 0xd8000
   region: flash_primary
-  span: [tfm, mcuboot_pad, app]
+  span: [mcuboot_pad, app, tfm]
 tfm_secure:
-  address: 0x38000
+  address: 0x18000
   size: 0x40000
   region: flash_primary
   span: [mcuboot_pad, tfm]
 mcuboot_pad:
-  address: 0x38000
+  address: 0x18000
   size: 0x200
   region: flash_primary
 mcuboot_primary_app:
-  address: 0x38200
-  size: 0xb7e00
+  address: 0x18200
+  size: 0xd7e00
   region: flash_primary
   span: [app, tfm]
-app_image:
-  address: 0x38200
-  size: 0xb7e00
-  region: flash_primary
-  span: [tfm, app]
 tfm:
-  address: 0x38200
+  address: 0x18200
   size: 0x3fe00
   region: flash_primary
 tfm_nonsecure:
-  address: 0x78000
-  size: 0x78000
+  address: 0x58000
+  size: 0x98000
   region: flash_primary
   span: [app]
-# "app" (0x78000-0xf0000) is deliberately NOT declared here -- this is the
+# "app" (0x58000-0xf0000) is deliberately NOT declared here -- this is the
 # one gap the partition manager fills dynamically. Its size is fixed as a
 # side effect of tfm_nonsecure/mcuboot_primary/mcuboot_primary_app above all
 # already being pinned to span exactly this range; if the app image doesn't
@@ -168,6 +136,6 @@ fmfu_storage:
   device: DT_CHOSEN(nordic_pm_ext_flash)
 mcuboot_secondary:
   address: 0x400000
-  size: 0xb8000
+  size: 0xd8000
   region: external_flash
   device: DT_CHOSEN(nordic_pm_ext_flash)

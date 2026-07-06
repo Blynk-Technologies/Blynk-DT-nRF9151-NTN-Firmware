@@ -8,8 +8,19 @@ choice BOOTLOADER
 	default BOOTLOADER_MCUBOOT if !BOARD_NATIVE_SIM
 endchoice
 
+# Disabled for nrf9151dk (2026-07-05): b0/NSIB writes its public-key-hash
+# provisioning data into UICR (0x00FF8000 region). UICR is one-time
+# programmable -- once written, EVERY subsequent flash via the safe erase
+# mode (chip_erase_mode=ERASE_RANGES_TOUCHED_BY_FIRMWARE) permanently
+# demands ERASE_ALL, which is forbidden near nuSIM-provisioned devices (their
+# SIM credentials live in a separate but adjacent region of the same UICR
+# page). Confirmed on real hardware: the first flash succeeds (blank UICR),
+# every flash after that fails without ERASE_ALL. No existing nrf9151dk
+# fleet depends on this yet, so it's disabled outright rather than only for
+# nuSIM builds (sysbuild Kconfig has no reliable way to know "this build
+# uses nuSIM" -- that's decided later, in the app image's own Kconfig).
 config SECURE_BOOT_APPCORE
-	default y if BOARD_NRF9151DK_NRF9151_NS
+	default n if BOARD_NRF9151DK_NRF9151_NS
 
 config WIFI_NRF70
 	default y if BOARD_THINGY91X_NRF9151_NS
